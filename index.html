@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <script src="tau-prolog.js"></script>
+    <script src="lodash.js"></script>
+    <script src="https://unpkg.com/mithril/mithril.js"></script>
+
+    <style>
+        html {
+            background-color: #222222;
+        }
+        .table {
+            display: inline-grid;
+            grid-template-columns: 30px 30px 30px 30px;
+            box-sizing: border-box;
+            background-color: black;
+
+            grid-row-gap: 2px;
+            grid-column-gap: 2px;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: white;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .sheet {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .sheet > * {
+            margin-bottom: 10px;
+        }
+
+        .sheet > textarea {
+            align-self: normal;
+            background-color: #253441;
+            color: lightyellow;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+    const limit = 10000;
+    var session = pl.create(limit);
+
+    var cellRefs = [];
+    var cellData = new Proxy({}, {
+        get: (target, name) => name in target ? target[name] : 0
+    });
+    var plScript = "";
+
+    function processCellValue(plCellValue) {
+        const {args: [{value: value, id: id}, {args: [{value: col}, {value: row}]}]} = plCellValue;
+        _.set(cellData, [col, row], value || id);
+    }
+
+    var callback = function( answer ) {
+        if (answer === false) {
+            console.error("no answer found!");
+
+        } else if (answer === null) {
+            // TODO: resume the query
+            console.error("time out");
+        } else {
+            var CellData = answer.links.CellData;
+            cellRefs = answer.links.CellRefs.toJavaScript();
+
+            var list = [];
+            var current = CellData.args;
+
+            while (current[1].id !== '[]') {
+                list.push(current[0]);
+                current = current[1].args;
+            }
+
+            list.push(current[0]);
+
+            for (cellValue of list) {
+                processCellValue(cellValue);
+            }
+        }
+
+
+        m.mount(root, Sheet);
+    };
+
+    fetch('duh.pl').then(function(response) {
+        response.text().then(function(script) {
+            plScript = script;
+            refreshSheet()
+        });
+    });
+
+    function refreshSheet() {
+        session.consult(plScript);
+
+        const queryStatus = session.query(`
+            side_effects,
+            findall(V @ C$R, V @ C$R, CellData),
+            findall([C, R, BgColor], (C$R, bg_color(C$R, BgColor)), CellRefs).
+        `);
+
+        if (!queryStatus) {
+            console.error("something is wrong")
+        }
+        session.answer(callback);
+    }
+
+    function onCodeChange(event) {
+        plScript = event.target.value;
+        refreshSheet()
+    }
+
+    var root = document.body;
+
+    var Sheet = {
+        view: function() {
+            return m("div.sheet",[
+                // TODO Use canvas to unify rendering between platforms
+                m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(cellRefs), 0)}, 30px`}},
+                    _.map(cellRefs, function([col, row, bgColor]) {
+                        return m("div.cell", {style: {'background-color': bgColor}}, cellData[col][row])
+                    })
+                ),
+                m("textarea", {rows: 40, onchange: onCodeChange}, plScript),
+                m("button", {onclick: refreshSheet}, "Update")
+            ])
+        }
+    }
+
+</script>
+
+</body>
+</html>

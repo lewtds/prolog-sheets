@@ -36,6 +36,7 @@ color(Col$Row, black).
 0 @ 1$1.
 
 reset_board :-
+    within_board(B$C),
     retractall(A @ B$C),
     asserta('♙' @ 1$7),
     asserta('♙' @ 2$7),
@@ -86,6 +87,8 @@ parse_algebraic_notation(Input, move('♙', C$R)) :-
 parse_algebraic_notation(Input, move('♗', C$R)) :-
     atom_chars(Input, ['B', C_, R_]), parse_chess_cell_ref(C_, R_, C$R).
 
+
+%V @ 10$1 :- V @ 9$1.
 
 side_effects :-
     reset_board,

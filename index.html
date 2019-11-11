@@ -11,6 +11,12 @@
     <style>
         html {
             background-color: #222222;
+            box-sizing: border-box;
+            font-family: sans-serif;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
         }
 
         .table {
@@ -21,14 +27,19 @@
 
             grid-row-gap: 2px;
             grid-column-gap: 2px;
+            align-items: center;
+            /*justify-content: center;*/
         }
 
         .cell {
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             background-color: white;
-            text-align: center;
-            font-size: 20px;
+            font-size: 22px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .sheet {
@@ -66,11 +77,18 @@
                 get: (target, name) => name in target ? target[name] : 0
             });
         }
-    }
+    };
 
     function processCellValue(plCellValue) {
         const {args: [{value: value, id: id}, {args: [{value: col}, {value: row}]}]} = plCellValue;
-        _.set(SheetState.cellData, [col, row], value || id);
+
+        if (value) {
+            _.set(SheetState.cellData, [col, row], value);
+        } else if (id === 'true' || id === 'false') {
+            _.set(SheetState.cellData, [col, row], eval(id));
+        } else {
+            _.set(SheetState.cellData, [col, row], id);
+        }
     }
 
     var callback = function (answer) {
@@ -82,6 +100,8 @@
         } else if (answer.id === "throw") {
             console.error(pl.format_answer(answer));
         } else {
+            console.log("ok")
+            // console.log(pl.format_answer(answer))
             var CellData = answer.links.CellData;
 
             SheetState.cellRefs = answer.links.CellRefs.toJavaScript();
@@ -112,15 +132,19 @@
         });
     });
 
-    function refreshSheet() {
+    function refreshSheet(skipConsult, skipSideEffects) {
         console.log("refresh sheet");
-        session.consult(SheetState.plScript);
 
-        const queryStatus = session.query(`
-            side_effects,
+        if (!skipConsult)
+            session.consult(SheetState.plScript);
+
+        const query = `
+            ${!skipSideEffects ? 'side_effects,' : ''}
             findall(V @ C$R, V @ C$R, CellData),
             findall([C, R, BgColor], (C$R, bg_color(C$R, BgColor)), CellRefs).
-        `);
+        `;
+
+        const queryStatus = session.query(query);
 
         if (!queryStatus) {
             console.error("something is wrong")
@@ -141,42 +165,83 @@
         var existingData = SheetState.cellData[cellCol][cellRow];
 
         // actually we want type coercion here because when dealing with element's value, it's always string
-        if ((_.isNil(newData) && _.isNil(existingData)) || newData == existingData) return;
+        if ((_.isEmpty(newData) && _.isNil(existingData)) || newData == existingData) return;
 
+        // TODO Proper quoting and stuff. Maybe we need typedCellValue and string rawCellValue in Prolog?
+        var quotedData = parseInt(newData, 10) || `'${newData}'`;
+
+        // FIXME retractall also retracts rules
         var query = _.isEmpty(newData) ?
             `retractall(_ @ ${cellCol}$${cellRow}).` :
-            `retractall(_ @ ${cellCol}$${cellRow}), asserta((${newData} @ ${cellCol}$${cellRow})).`;
+            `retractall(_ @ ${cellCol}$${cellRow}), assertz(${quotedData} @ ${cellCol}$${cellRow}).`;
 
-        // TODO quoting and stuff
         session.query(query);
 
         session.answer(function (answer) {
             console.log("cell update query: ", query);
             console.log("cell update status: ", pl.format_answer(answer));
-        });
 
-        refreshSheet();
+            refreshSheet(true);
+        });
+    }
+
+    function onBooleanCellChanged(event) {
+        var {cellCol, cellRow} = event.target.dataset;
+        var newData = event.target.checked;
+        var query = `retractall(_ @ ${cellCol}$${cellRow}), assertz(${newData} @ ${cellCol}$${cellRow}).`
+
+        session.query(query);
+
+        session.answer(function (answer) {
+            console.log("cell update query: ", query);
+            console.log("cell update status: ", pl.format_answer(answer));
+
+            refreshSheet(true);
+        });
     }
 
     var Sheet = {
         view: function () {
             return m("div.sheet", [
                 // TODO Use canvas to unify rendering between platforms
-                m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(SheetState.cellRefs), 0)}, 30px`}},
+                m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(SheetState.cellRefs), 0)}, 40px`}},
                     _.map(SheetState.cellRefs, function ([col, row, bgColor]) {
+                        var value = SheetState.cellData[col][row];
+                        // TODO How to remove a boolean cell?
+                        if (_.isBoolean(value)) {
+                            return m("div.cell", {
+                                key: `${col}-${row}`,
+                                style: {'background-color': bgColor}
+                            }, [
+                                m("input[type=checkbox]", {
+                                    'data-cell-col': col,
+                                    'data-cell-row': row,
+                                    checked: value, onchange: onBooleanCellChanged,
+                                })
+                            ])
+                        }
+
                         return m("div.cell", {
                             key: `${col}-${row}`,
                             'data-cell-col': col,
                             'data-cell-row': row,
                             contentEditable: true,
-                            textContent: SheetState.cellData[col][row],
+                            textContent: value,
                             onblur: onCellDataChange,
                             style: {'background-color': bgColor}
                         })
                     })
                 ),
-                m("textarea", {rows: 40, onchange: onCodeChange}, SheetState.plScript),
-                m("button", {onclick: refreshSheet}, "Update")
+                m('input', {onkeyup: function(event) {
+                    if (event.key === 'Enter') {
+                        session.query(event.target.value);
+                        session.answer(function(answer) {
+                            console.log(pl.format_answer(answer));
+                            refreshSheet(true, true);
+                        });
+                    }
+                    }}),
+                m("textarea", {rows: 40, onchange: onCodeChange}, SheetState.plScript)
             ])
         }
     }

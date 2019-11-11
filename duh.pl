@@ -36,8 +36,7 @@ color(Col$Row, black).
 0 @ 1$1.
 
 reset_board :-
-    within_board(B$C),
-    retractall(A @ B$C),
+    forall(within_board(C$R), retractall(V @ C$R)),
     asserta('♙' @ 1$7),
     asserta('♙' @ 2$7),
     asserta('♙' @ 3$7),

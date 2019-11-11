@@ -12,6 +12,7 @@
         html {
             background-color: #222222;
         }
+
         .table {
             display: inline-grid;
             grid-template-columns: 30px 30px 30px 30px;
@@ -53,27 +54,37 @@
     const limit = 10000;
     var session = pl.create(limit);
 
-    var cellRefs = [];
-    var cellData = new Proxy({}, {
-        get: (target, name) => name in target ? target[name] : 0
-    });
-    var plScript = "";
+    var SheetState = {
+        cellData: new Proxy({}, {
+            get: (target, name) => name in target ? target[name] : 0
+        }),
+        cellRefs: [],
+        plScript: "",
+
+        reset: function() {
+            this.cellData = new Proxy({}, {
+                get: (target, name) => name in target ? target[name] : 0
+            });
+        }
+    }
 
     function processCellValue(plCellValue) {
         const {args: [{value: value, id: id}, {args: [{value: col}, {value: row}]}]} = plCellValue;
-        _.set(cellData, [col, row], value || id);
+        _.set(SheetState.cellData, [col, row], value || id);
     }
 
-    var callback = function( answer ) {
+    var callback = function (answer) {
         if (answer === false) {
             console.error("no answer found!");
-
         } else if (answer === null) {
             // TODO: resume the query
             console.error("time out");
+        } else if (answer.id === "throw") {
+            console.error(pl.format_answer(answer));
         } else {
             var CellData = answer.links.CellData;
-            cellRefs = answer.links.CellRefs.toJavaScript();
+
+            SheetState.cellRefs = answer.links.CellRefs.toJavaScript();
 
             var list = [];
             var current = CellData.args;
@@ -85,24 +96,25 @@
 
             list.push(current[0]);
 
+            SheetState.reset();
             for (cellValue of list) {
                 processCellValue(cellValue);
             }
         }
 
-
         m.mount(root, Sheet);
     };
 
-    fetch('duh.pl').then(function(response) {
-        response.text().then(function(script) {
-            plScript = script;
+    fetch('duh.pl').then(function (response) {
+        response.text().then(function (script) {
+            SheetState.plScript = script;
             refreshSheet()
         });
     });
 
     function refreshSheet() {
-        session.consult(plScript);
+        console.log("refresh sheet");
+        session.consult(SheetState.plScript);
 
         const queryStatus = session.query(`
             side_effects,
@@ -117,22 +129,53 @@
     }
 
     function onCodeChange(event) {
-        plScript = event.target.value;
+        SheetState.plScript = event.target.value;
         refreshSheet()
     }
 
     var root = document.body;
 
+    function onCellDataChange(event) {
+        var {cellCol, cellRow} = event.target.dataset;
+        var newData = event.target.textContent;
+        var existingData = SheetState.cellData[cellCol][cellRow];
+
+        // actually we want type coercion here because when dealing with element's value, it's always string
+        if ((_.isNil(newData) && _.isNil(existingData)) || newData == existingData) return;
+
+        var query = _.isEmpty(newData) ?
+            `retractall(_ @ ${cellCol}$${cellRow}).` :
+            `retractall(_ @ ${cellCol}$${cellRow}), asserta((${newData} @ ${cellCol}$${cellRow})).`;
+
+        // TODO quoting and stuff
+        session.query(query);
+
+        session.answer(function (answer) {
+            console.log("cell update query: ", query);
+            console.log("cell update status: ", pl.format_answer(answer));
+        });
+
+        refreshSheet();
+    }
+
     var Sheet = {
-        view: function() {
-            return m("div.sheet",[
+        view: function () {
+            return m("div.sheet", [
                 // TODO Use canvas to unify rendering between platforms
-                m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(cellRefs), 0)}, 30px`}},
-                    _.map(cellRefs, function([col, row, bgColor]) {
-                        return m("div.cell", {style: {'background-color': bgColor}}, cellData[col][row])
+                m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(SheetState.cellRefs), 0)}, 30px`}},
+                    _.map(SheetState.cellRefs, function ([col, row, bgColor]) {
+                        return m("div.cell", {
+                            key: `${col}-${row}`,
+                            'data-cell-col': col,
+                            'data-cell-row': row,
+                            contentEditable: true,
+                            textContent: SheetState.cellData[col][row],
+                            onblur: onCellDataChange,
+                            style: {'background-color': bgColor}
+                        })
                     })
                 ),
-                m("textarea", {rows: 40, onchange: onCodeChange}, plScript),
+                m("textarea", {rows: 40, onchange: onCodeChange}, SheetState.plScript),
                 m("button", {onclick: refreshSheet}, "Update")
             ])
         }

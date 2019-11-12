@@ -7,7 +7,12 @@
 A smart, scripted spreadsheet in which you don’t write cell formulas directly but instead write a series of high-level
 logic rules to “relate” cell values and cell properties like color or border together. 
 
-I hope this could become a viable application prototyping platform in the near future.
+Ex: *2nd row is 1st row + 2* or
+*even rows look darker, based on the color specified at cell B15*.
+
+I hope this could become a viable application prototyping platform in the near future, fixing many of the problems with
+spreadsheets as an application building platform, esp. the low reproducibility due to the WYSIWYG nature and the 
+hidden-by-default behavior of cell formulas
 
 The project is in a very early stage. For now, please check the screenshots/screencaps in the [docs](docs/) folder and
 and this collection of sketches in OneNote to get a glimpse of what goes on in my mind: https://1drv.ms/u/s!AsPGvKKy2Gsw4BhEquKaQ_WSvaf0

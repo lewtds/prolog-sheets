@@ -4,6 +4,8 @@
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/65a7cf77-eb21-43a1-80d2-1cdd39679f1a/deploy-status)](https://app.netlify.com/sites/silly-newton-ec1704/deploys)
 
+Latest version accessible at: https://silly-newton-ec1704.netlify.com/
+
 A smart, scripted spreadsheet in which you don’t write cell formulas directly but instead write a series of high-level
 logic rules to “relate” cell values and cell properties like color or border together. 
 
@@ -18,5 +20,3 @@ The project is in a very early stage. For now, please check the screenshots/scre
 and this collection of sketches in OneNote to get a glimpse of what goes on in my mind: https://1drv.ms/u/s!AsPGvKKy2Gsw4BhEquKaQ_WSvaf0
 
 Come talk to @lewtds at #vnluser at Freenode to pick my brain.
-
-Also check the Netlify link above to play around with it.

@@ -201,36 +201,37 @@
     }
 
     var Sheet = {
+        renderCell: function ([col, row, bgColor]) {
+            var value = SheetState.cellData[col][row];
+            // TODO How to remove a boolean cell?
+            if (_.isBoolean(value)) {
+                return m("div.cell", {
+                    key: `${col}-${row}`,
+                    style: {'background-color': bgColor}
+                }, [
+                    m("input[type=checkbox]", {
+                        'data-cell-col': col,
+                        'data-cell-row': row,
+                        checked: value, onchange: onBooleanCellChanged,
+                    })
+                ])
+            }
+
+            return m("div.cell", {
+                key: `${col}-${row}`,
+                'data-cell-col': col,
+                'data-cell-row': row,
+                contentEditable: true,
+                textContent: value,
+                onblur: onCellDataChange,
+                style: {'background-color': bgColor}
+            })
+        },
         view: function () {
             return m("div.sheet", [
                 // TODO Use canvas to unify rendering between platforms
                 m("div.table", {style: {"grid-template-columns": `repeat(${_.get(_.last(SheetState.cellRefs), 0)}, 40px`}},
-                    _.map(SheetState.cellRefs, function ([col, row, bgColor]) {
-                        var value = SheetState.cellData[col][row];
-                        // TODO How to remove a boolean cell?
-                        if (_.isBoolean(value)) {
-                            return m("div.cell", {
-                                key: `${col}-${row}`,
-                                style: {'background-color': bgColor}
-                            }, [
-                                m("input[type=checkbox]", {
-                                    'data-cell-col': col,
-                                    'data-cell-row': row,
-                                    checked: value, onchange: onBooleanCellChanged,
-                                })
-                            ])
-                        }
-
-                        return m("div.cell", {
-                            key: `${col}-${row}`,
-                            'data-cell-col': col,
-                            'data-cell-row': row,
-                            contentEditable: true,
-                            textContent: value,
-                            onblur: onCellDataChange,
-                            style: {'background-color': bgColor}
-                        })
-                    })
+                    _.map(SheetState.cellRefs, Sheet.renderCell)
                 ),
                 m('input', {onkeyup: function(event) {
                     if (event.key === 'Enter') {

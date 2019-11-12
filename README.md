@@ -12,4 +12,6 @@ I hope this could become a viable application prototyping platform in the near f
 The project is in a very early stage. For now, please check the screenshots/screencaps in the [docs](docs/) folder and
 and this collection of sketches in OneNote to get a glimpse of what goes on in my mind: https://1drv.ms/u/s!AsPGvKKy2Gsw4BhEquKaQ_WSvaf0
 
+Come talk to @lewtds at #vnluser at Freenode to pick my brain.
+
 Also check the Netlify link above to play around with it.

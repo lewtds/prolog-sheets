@@ -19,4 +19,7 @@ hidden-by-default behavior of cell formulas
 The project is in a very early stage. For now, please check the screenshots/screencaps in the [docs](docs/) folder and
 and this collection of sketches in OneNote to get a glimpse of what goes on in my mind: https://1drv.ms/u/s!AsPGvKKy2Gsw4BhEquKaQ_WSvaf0
 
+I'm preparing a simple tutorial but for now, please refer to this quick guide from Wikipedia on [Prolog syntax and
+semantics](https://en.wikipedia.org/wiki/Prolog_syntax_and_semantics). 
+
 Come talk to @lewtds at #vnluser at Freenode to pick my brain.
